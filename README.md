@@ -64,4 +64,4 @@ If this command fails, VLC will not be able to trim videos.
 
 After placing the lua script in the correction check the View tab and select `Trim video using FFmpeg`
 
-![Usage example](usage.png)
+![img](usage.png)
