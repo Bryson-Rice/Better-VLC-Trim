@@ -14,11 +14,11 @@ Place `ffmpeg_trim.lua` in VLC’s **extensions** folder.
 
 **Windows**
 
-C:\Users<YourUsername>\AppData\Roaming\vlc\lua\extensions\
+C:\Users\YourUsername\AppData\Roaming\vlc\lua\extensions\
 
 **macOS**
 
-/Users/<YourUsername>/Library/Application Support/org.videolan.vlc/lua/extensions/
+/Users/YourUsername/Library/Application Support/org.videolan.vlc/lua/extensions/
 
 
 **Linux**
