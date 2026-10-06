@@ -4,7 +4,7 @@
 function descriptor()
     return {
         title = "FFmpeg Trim Video",
-        version = "1.1",
+        version = "1.2",
         author = "Sen",
         shortdesc = "Trim video using FFmpeg",
         description = "Trim current video using start and end times",
@@ -28,6 +28,8 @@ function activate()
 
     dlg:add_button("Trim Video", trim_video, 1, 3, 3, 1)
     status_label = dlg:add_label("", 1, 4, 3, 1)
+
+    set_default_times()
 end
 
 function deactivate()
@@ -38,71 +40,80 @@ function close()
     vlc.deactivate()
 end
 
--- TODO: I should simplify this function
+-- Start = 00:00:00, End = full video length (if a video is loaded)
+function set_default_times()
+    start_input:set_text("00:00:00")
+
+    local duration = get_video_duration_seconds()
+    if duration then
+        end_input:set_text(seconds_to_hms(duration))
+    end
+end
+
+function set_status(msg)
+    status_label:set_text(msg)
+end
+
+-- Returns an error message if the range is invalid, otherwise nil
+function validate_range(start_seconds, end_seconds, duration)
+    if start_seconds >= duration then
+        return "Start time exceeds video length"
+    end
+    if end_seconds > duration then
+        return "End time exceeds video length"
+    end
+    if start_seconds == end_seconds then
+        return "Start and end times cannot be the same"
+    end
+    if start_seconds > end_seconds then
+        return "Start time must be before end time"
+    end
+    return nil
+end
+
+-- Returns the playing file's path, or nil if nothing is playing
+function get_input_path()
+    local item = vlc.input.item()
+    if not item then return nil end
+
+    local path = vlc.strings.decode_uri(item:uri())
+    path = path:gsub("^file:///", "")
+    return path
+end
+
 function trim_video()
-    local start_raw = start_input:get_text()
-    local end_raw   = end_input:get_text()
-
-    local start_seconds = parse_time(start_raw)
-    local end_seconds   = parse_time(end_raw)
-
+    local start_seconds = parse_time(start_input:get_text())
+    local end_seconds   = parse_time(end_input:get_text())
     if not start_seconds or not end_seconds then
-        status_label:set_text("Invalid time format. Use HH:MM:SS")
-        return
+        return set_status("Invalid time format. Use HH:MM:SS")
     end
 
     local duration = get_video_duration_seconds()
     if not duration then
-        status_label:set_text("Unable to determine video length")
-        return
+        return set_status("Unable to determine video length")
     end
 
-    if start_seconds >= duration then
-        status_label:set_text("Start time exceeds video length")
-        return
+    local err = validate_range(start_seconds, end_seconds, duration)
+    if err then
+        return set_status(err)
     end
 
-    if end_seconds > duration then
-        status_label:set_text("End time exceeds video length")
-        return
+    local input_path = get_input_path()
+    if not input_path then
+        return set_status("No video currently playing")
     end
-
-    if start_seconds == end_seconds then
-        status_label:set_text("Start and end times cannot be the same")
-        return
-    end
-
-    if start_seconds > end_seconds then
-        status_label:set_text("Start time must be before end time")
-        return
-    end
-
-
-    local start_time = seconds_to_hms(start_seconds)
-    local end_time   = seconds_to_hms(end_seconds)
-
-    local item = vlc.input.item()
-    if not item then
-        status_label:set_text("No video currently playing")
-        return
-    end
-
-    local input_path = vlc.strings.decode_uri(item:uri())
-    input_path = input_path:gsub("^file:///", "")
 
     local output_path = make_unique_output_name(input_path)
-
     local cmd = string.format(
         'ffmpeg -y -i "%s" -ss %s -to %s -c copy "%s"',
-        input_path, start_time, end_time, output_path
+        input_path, seconds_to_hms(start_seconds),
+        seconds_to_hms(end_seconds), output_path
     )
 
-    status_label:set_text("Running ffmpeg...")
+    set_status("Running ffmpeg...")
     vlc.msg.info("Running: " .. cmd)
-
     os.execute(cmd)
-
-    status_label:set_text("Done! Saved as: " .. output_path)
+    set_status("Done! Saved as: " .. output_path)
 end
 
 function get_video_duration_seconds()
